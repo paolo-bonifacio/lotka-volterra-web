@@ -1,4 +1,7 @@
 // lotka_volterra.js
+
+console.log("lotka_volterra.js loaded");
+
 let alpha = 1.1, beta = 0.4, delta = 0.1, gamma = 0.4;
 let tmax = 50, dt = 0.05;
 let preyCurve = [], predCurve = [], tValues = [];
