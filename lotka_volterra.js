@@ -1,38 +1,40 @@
 /* sim.js */
-// Lotka-Volterra simulation with time-series and agent-based views
 let alpha = 1.1, beta = 0.4, delta = 0.1, gamma = 0.4;
 let tmax = 50, dt = 0.05;
 let preyCurve = [], predCurve = [], tValues = [];
 let preyColor, predColor;
 let sliderPrey, sliderPred, pauseBtn;
 let paused = false;
-let canvas;
+let animIndex = 0;
 
 function setup() {
-  // attach p5 canvas
-  canvas = createCanvas(windowWidth - 220, windowHeight);
+  const canvasWidth = windowWidth - 220;
+  const canvasHeight = windowHeight;
+  let canvas = createCanvas(canvasWidth, canvasHeight);
   canvas.parent('canvas-holder');
   preyColor = color(0, 114, 189);
   predColor = color(217, 83, 25);
   frameRate(30);
 
-  // UI elements
-  sliderPrey = select('#sliderPrey');
-  sliderPred = select('#sliderPred');
-  pauseBtn = select('#pauseBtn');
-  pauseBtn.mousePressed(() => paused = !paused);
+  // use plain JS to get DOM elements
+  sliderPrey = document.getElementById('sliderPrey');
+  sliderPred = document.getElementById('sliderPred');
+  pauseBtn   = document.getElementById('pauseBtn');
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  });
 
   computeSolution();
 }
 
 function computeSolution() {
-  // read initial conditions
-  let x0 = floor(sliderPrey.value());
-  let y0 = floor(sliderPred.value());
-
-  // initialize arrays
-  preyCurve = [x0]; predCurve = [y0]; tValues = [0];
-  let steps = floor(tmax / dt);
+  let x0 = parseInt(sliderPrey.value);
+  let y0 = parseInt(sliderPred.value);
+  preyCurve = [x0];
+  predCurve = [y0];
+  tValues = [0];
+  let steps = Math.floor(tmax / dt);
   for (let i = 1; i <= steps; i++) {
     let t = i * dt;
     let x = preyCurve[i - 1];
@@ -60,50 +62,50 @@ function computeSolution() {
   }
 }
 
-let animIndex = 0;
 function draw() {
   background(255);
-  // left: time-series
+  // dimensions
+  let w = width;
+  let h = height / 2;
+  
+  // Top: time-series
   push();
-  translate(0, 0);
-  strokeWeight(2);
   // grid
   stroke(200);
-  for (let i = 0; i <= width; i += 50) line(i, 0, i, height / 2);
-  for (let j = 0; j <= height/2; j += 50) line(0, j, width, j);
+  for (let i = 0; i <= w; i += w/10) line(i, 0, i, h);
+  for (let j = 0; j <= h; j += h/10) line(0, j, w, j);
   // curves
-  stroke(preyColor);
-  noFill(); beginShape();
-  for (let i = 0; i < tValues.length; i++) vertex(map(tValues[i], 0, tmax, 0, width), map(preyCurve[i], 0, max(preyCurve), height/2, 0));
+  noFill(); stroke(preyColor);
+  beginShape();
+  for (let i = 0; i < tValues.length; i++) {
+    vertex(map(tValues[i], 0, tmax, 0, w), map(preyCurve[i], 0, max(preyCurve), h, 0));
+  }
   endShape();
   stroke(predColor);
   beginShape();
-  for (let i = 0; i < tValues.length; i++) vertex(map(tValues[i], 0, tmax, 0, width), map(predCurve[i], 0, max(predCurve), height/2, 0));
+  for (let i = 0; i < tValues.length; i++) {
+    vertex(map(tValues[i], 0, tmax, 0, w), map(predCurve[i], 0, max(predCurve), h, 0));
+  }
   endShape();
   // live text
   let x = animIndex;
-  fill(0);
   noStroke(); textSize(14);
-  text(`t = ${tValues[x].toFixed(1)}`, 10, 20);
-  fill(preyColor); text(`N = ${floor(preyCurve[x])}`, 120, 20);
-  fill(predColor); text(`N = ${floor(predCurve[x])}`, 260, 20);
+  fill(0);               text(`t = ${tValues[x].toFixed(1)}`, 10, 20);
+  fill(preyColor);       text(`N = ${floor(preyCurve[x])}`, 120, 20);
+  fill(predColor);       text(`N = ${floor(predCurve[x])}`, 260, 20);
   // scan line
-  stroke(0);
-  line(map(tValues[x], 0, tmax, 0, width), 0, map(tValues[x], 0, tmax, 0, width), height/2);
+  stroke(0); line(map(tValues[x], 0, tmax, 0, w), 0, map(tValues[x], 0, tmax, 0, w), h);
   pop();
-
-  // right: agent-based
-  let halfH = height/2;
-  push(); translate(0, halfH);
-  // background
-  noStroke(); fill(0, 77, 0); rect(0, 0, width, halfH);
-  // agents
+  
+  // Bottom: agent-based
+  push(); translate(0, h);
+  noStroke(); fill(0,77,0); rect(0, 0, w, h);
   let nPrey = floor(preyCurve[x]);
   let nPred = floor(predCurve[x]);
-  fill(preyColor); noStroke();
-  for (let i = 0; i < nPrey; i++) ellipse(random(width), random(halfH), 6);
+  fill(preyColor);
+  for (let i = 0; i < nPrey; i++) ellipse(random(w), random(h), 6);
   fill(predColor);
-  for (let i = 0; i < nPred; i++) ellipse(random(width), random(halfH), 6);
+  for (let i = 0; i < nPred; i++) ellipse(random(w), random(h), 6);
   pop();
 
   if (!paused) {
