@@ -1,25 +1,26 @@
-// lotka_volterra.js
+// lotka_volterra.js (FULL VERSION with epsilon replacing delta)
 
-console.log("lotka_volterra.js loaded");
+let alpha = 0.1, beta = 0.002, gamma = 0.2, epsilon = 1.0;
+let delta = epsilon * beta;
 
-let alpha = 1.1, beta = 0.4, delta = 0.1, gamma = 0.4;
-let tmax = 50, dt = 0.01;
+let tmax = 150, dt = 0.01;
 let preyCurve = [], predCurve = [], tValues = [];
 let preyColor, predColor;
-let sliderPrey, sliderPred, pauseBtn;
+let sliderPrey, sliderPred, sliderAlpha, sliderBeta, sliderGamma, sliderEpsilon, pauseBtn;
 let paused = false;
 let animIndex = 0;
 let yMax = 1;
-let marginLeft = 60;
 let dotSize = 20;
 let numDotsMax = 200;
 
 let preyDots = [], predDots = [];
 
 function setup() {
-  const w = windowWidth - 220;
-  const h = windowHeight;
-  let cnv = createCanvas(w, h);
+  const controlPanelWidth = 140;
+  const paramPanelWidth = 180;
+  const canvasWidth = windowWidth - controlPanelWidth - paramPanelWidth;
+  const canvasHeight = windowHeight;
+  let cnv = createCanvas(canvasWidth, canvasHeight);
   cnv.parent('canvas-holder');
 
   preyColor = color(0, 114, 189);
@@ -28,40 +29,39 @@ function setup() {
 
   sliderPrey = document.getElementById('sliderPrey');
   sliderPred = document.getElementById('sliderPred');
+  sliderAlpha = document.getElementById('sliderAlpha');
+  sliderBeta  = document.getElementById('sliderBeta');
+  sliderGamma = document.getElementById('sliderGamma');
+  sliderEpsilon = document.getElementById('sliderEpsilon');
   pauseBtn   = document.getElementById('pauseBtn');
 
-  sliderPrey.value = 40;
-  sliderPred.value = 10;
+  sliderPrey.addEventListener('input', () => { computeSolution(); animIndex = 0; });
+  sliderPred.addEventListener('input', () => { computeSolution(); animIndex = 0; });
+  sliderAlpha.addEventListener('input', () => {
+    alpha = parseFloat(sliderAlpha.value);
+    computeSolution(); animIndex = 0;
+  });
+  sliderBeta.addEventListener('input', () => {
+    beta = parseFloat(sliderBeta.value);
+    delta = epsilon * beta;
+    computeSolution(); animIndex = 0;
+  });
+  sliderGamma.addEventListener('input', () => {
+    gamma = parseFloat(sliderGamma.value);
+    computeSolution(); animIndex = 0;
+  });
+  sliderEpsilon.addEventListener('input', () => {
+    epsilon = parseFloat(sliderEpsilon.value);
+    delta = epsilon * beta;
+    computeSolution(); animIndex = 0;
+  });
 
   pauseBtn.addEventListener('click', () => {
     paused = !paused;
     pauseBtn.textContent = paused ? 'Resume' : 'Pause';
   });
 
-  sliderPrey.addEventListener('input', () => { computeSolution(); animIndex = 0; });
-  sliderPred.addEventListener('input', () => { computeSolution(); animIndex = 0; });
-
   computeSolution();
-  initializeDots();
-}
-
-function initializeDots() {
-  preyDots = [];
-  predDots = [];
-  for (let i = 0; i < numDotsMax; i++) {
-    preyDots.push({
-      x: random(width),
-      y: random(height / 2),
-      vx: random(-0.3, 0.3),
-      vy: random(-0.3, 0.3)
-    });
-    predDots.push({
-      x: random(width),
-      y: random(height / 2),
-      vx: random(-0.3, 0.3),
-      vy: random(-0.3, 0.3)
-    });
-  }
 }
 
 function computeSolution() {
@@ -95,137 +95,176 @@ function computeSolution() {
   yMax = Math.max(...preyCurve, ...predCurve);
 }
 
+function windowResized() {
+  const controlPanelWidth = 140;
+  const paramPanelWidth = 180;
+  resizeCanvas(windowWidth - controlPanelWidth - paramPanelWidth, windowHeight);
+  preyDots = [];
+  predDots = [];
+}
+
 function draw() {
   background(255);
-  const w = width, h = height / 2;
+  const w = width;
+  const hTotal = height;
+  const hPlot = hTotal * 0.45;
+  const gap = hTotal * 0.05;
 
-  // Title and parameter info
-  textAlign(CENTER);
-  fill(0); textSize(25);
-  text(`Lotka-Volterra Model: α=${alpha.toFixed(2)}, β=${beta.toFixed(2)}, δ=${delta.toFixed(2)}, γ=${gamma.toFixed(2)}`, width / 2, 20);
+  const simBoxSize = min(w, hTotal * 0.35);
+  const simTop = hPlot + gap + 60;
+  const simLeft = (w - simBoxSize) / 2;
 
-  push();
-  // Grid lines
-  stroke(220);
-  for (let i = 0; i <= 10; i++) {
-    const x = map(i * (tmax / 10), 0, tmax, marginLeft, width);
-    line(x, 0, x, h);
-  }
-  for (let j = 0; j <= 10; j++) {
-    const y = j * h / 10;
-    line(marginLeft, y, width, y);
+  if (preyDots.length === 0 || predDots.length === 0) {
+    initializeDots(simLeft, simTop, simBoxSize);
   }
 
-  // Y-axis
+  const graphLeft = 60;
+  const graphRight = width - 20;
+
+  textAlign(CENTER); fill(0); textSize(24);
+  text(`Lotka-Volterra Model: α=${alpha}, β=${beta}, γ=${gamma}, ε=${epsilon}, δ=ε×β=${delta.toFixed(4)}`, width / 2, 25);
+
   stroke(0);
-  line(marginLeft, 0, marginLeft, h);
-  textSize(18);
-  fill(0);
-  textAlign(RIGHT, CENTER);
+  line(graphLeft, 0, graphLeft, hPlot);
+  fill(0); textSize(16); textAlign(RIGHT, CENTER); noStroke();
   for (let j = 0; j <= 10; j++) {
     const val = (yMax / 10) * j;
-    const y = map(val, 0, yMax, h, 0);
-    line(marginLeft - 5, y, marginLeft, y);
-    text(val.toFixed(0), marginLeft - 8, y);
+    const y = map(val, 0, yMax, hPlot, 0);
+    stroke(0);
+    line(graphLeft - 5, y, graphLeft, y);
+    noStroke();
+    text(val.toFixed(0), graphLeft - 10, y);
   }
 
-  // Y-axis label
-  push();
-  translate(15, h / 2);
-  rotate(-HALF_PI);
-  textAlign(CENTER);
-  text("Population", 0, 0);
-  pop();
+  push(); translate(25, hPlot / 2); rotate(-HALF_PI);
+  textAlign(CENTER); text("Population", 0, 0); pop();
 
-  // Curves
+  stroke(220);
+  for (let i = 0; i <= 10; i++) {
+    const x = map(i * (tmax / 10), 0, tmax, graphLeft, graphRight);
+    line(x, 0, x, hPlot);
+  }
+  for (let j = 0; j <= 10; j++) {
+    const y = j * hPlot / 10;
+    line(graphLeft, y, graphRight, y);
+  }
+
   noFill(); strokeWeight(2.5);
   stroke(preyColor); beginShape();
   for (let i = 0; i < tValues.length; i++) {
-    const x = map(tValues[i], 0, tmax, marginLeft, width);
-    const y = map(preyCurve[i], 0, yMax, h, 0);
+    const x = map(tValues[i], 0, tmax, graphLeft, graphRight);
+    const y = map(preyCurve[i], 0, yMax, hPlot, 0);
     vertex(x, y);
   }
   endShape();
 
   stroke(predColor); beginShape();
   for (let i = 0; i < tValues.length; i++) {
-    const x = map(tValues[i], 0, tmax, marginLeft, width);
-    const y = map(predCurve[i], 0, yMax, h, 0);
+    const x = map(tValues[i], 0, tmax, graphLeft, graphRight);
+    const y = map(predCurve[i], 0, yMax, hPlot, 0);
     vertex(x, y);
   }
   endShape();
   strokeWeight(1);
 
-  // Vertical time marker and labels
   const idx = animIndex;
-  const xLine = map(tValues[idx], 0, tmax, marginLeft, width);
-  stroke(0); line(xLine, 0, xLine, h);
-  noStroke(); textSize(25); textAlign(LEFT);
-  fill(0);         text(`t = ${tValues[idx].toFixed(1)}`, marginLeft + 10, 40);
-  fill(preyColor); text(`Prey = ${floor(preyCurve[idx])}`, marginLeft + 150, 40);
-  fill(predColor); text(`Pred = ${floor(predCurve[idx])}`, marginLeft + 300, 40);
-  pop();
+  const xLine = map(tValues[idx], 0, tmax, graphLeft, graphRight);
+  stroke(0); strokeWeight(1);
+  line(xLine, 0, xLine, hPlot);
 
-  // Bottom simulation section
+  const axisY = hPlot;
+  stroke(0); line(graphLeft, axisY, graphRight, axisY);
+  textSize(16); textAlign(CENTER, TOP);
+  for (let i = 0; i <= 10; i++) {
+    const t = (tmax / 10) * i;
+    const x = map(t, 0, tmax, graphLeft, graphRight);
+    stroke(0); line(x, axisY, x, axisY + 6);
+    noStroke(); fill(0); text(t.toFixed(0), x, axisY + 10);
+  }
+  fill(0); noStroke(); textSize(18);
+  text("Time", (graphLeft + graphRight) / 2, axisY + 35);
+
+  textSize(24); textAlign(LEFT); noStroke();
+  fill(0); text(`t = ${tValues[animIndex].toFixed(1)}`, graphLeft + 10, 40);
+  fill(preyColor); text(`Prey = ${floor(preyCurve[animIndex])}`, graphLeft + 220, 40);
+  fill(predColor); text(`Pred = ${floor(predCurve[animIndex])}`, graphLeft + 400, 40);
+
+  const initialPrey = parseInt(sliderPrey.value, 10);
+  const initialPred = parseInt(sliderPred.value, 10);
+  fill(preyColor); text(`Initial Prey = ${initialPrey}`, graphLeft + 220, 70);
+  fill(predColor); text(`Initial Pred = ${initialPred}`, graphLeft + 400, 70);
+
+  const infoX = 30;
+  const infoY = simTop;
+  const lineHeight = 22;
+  const boxWidth = 320;
+  const boxHeight = 6 * lineHeight + 20;
+
+  fill(255); stroke(0); strokeWeight(1);
+  rect(infoX, infoY, boxWidth, boxHeight);
+
+  noStroke();
+  fill(0); textSize(16); textAlign(LEFT, TOP);
+  text("Model Parameters:", infoX + 10, infoY + 10);
+  text("α: Prey reproduction rate", infoX + 10, infoY + 10 + lineHeight);
+  text("β: Predation rate (prey eaten)", infoX + 10, infoY + 10 + 2 * lineHeight);
+  text("ε: Conversion efficiency (prey → predator)", infoX + 10, infoY + 10 + 3 * lineHeight);
+  text("δ = ε × β = " + delta.toFixed(4), infoX + 10, infoY + 10 + 4 * lineHeight);
+  text("γ: Predator death rate", infoX + 10, infoY + 10 + 5 * lineHeight);
+
+  fill(0); noStroke(); textSize(20); textAlign(CENTER);
+  text("Ecosystem Simulation", width / 2, simTop - 20);
+
   push();
-  translate(0, h);
-  noStroke(); fill(0, 77, 0); rect(0, 0, width, h);
+  fill(34, 139, 34); stroke(0); strokeWeight(2);
+  rect(simLeft, simTop, simBoxSize, simBoxSize);
 
   let nPrey = constrain(floor(preyCurve[animIndex]), 0, numDotsMax);
   let nPred = constrain(floor(predCurve[animIndex]), 0, numDotsMax);
 
-  fill(preyColor);
-  for (let i = 0; i < nPrey; i++) {
-    let dot = preyDots[i];
-    if (!paused) {
-      dot.vx += random(-0.02, 0.02);
-      dot.vy += random(-0.02, 0.02);
-      dot.vx = constrain(dot.vx, -0.5, 0.5);
-      dot.vy = constrain(dot.vy, -0.5, 0.5);
-      dot.x += dot.vx;
-      dot.y += dot.vy;
-      dot.x = constrain(dot.x, 0, width);
-      dot.y = constrain(dot.y, 0, h);
-    }
-    ellipse(dot.x, dot.y, dotSize);
-  }
-
-  fill(predColor);
-  for (let i = 0; i < nPred; i++) {
-    let dot = predDots[i];
-    if (!paused) {
-      dot.vx += random(-0.02, 0.02);
-      dot.vy += random(-0.02, 0.02);
-      dot.vx = constrain(dot.vx, -0.5, 0.5);
-      dot.vy = constrain(dot.vy, -0.5, 0.5);
-      dot.x += dot.vx;
-      dot.y += dot.vy;
-      dot.x = constrain(dot.x, 0, width);
-      dot.y = constrain(dot.y, 0, h);
-    }
-    ellipse(dot.x, dot.y, dotSize);
-  }
+  updateDots(preyDots, nPrey, simLeft, simTop, simBoxSize, preyColor);
+  updateDots(predDots, nPred, simLeft, simTop, simBoxSize, predColor);
 
   pop();
-
-  // Final draw: x-axis for time on top of everything
-  const axisY = height / 2 - 5;
-  stroke(0);
-  line(marginLeft, axisY, width, axisY);
-  textAlign(CENTER, TOP); textSize(18); noStroke();
-  for (let i = 0; i <= 10; i++) {
-    const t = (tmax / 10) * i;
-    const x = map(t, 0, tmax, marginLeft, width);
-    stroke(0);
-    line(x, axisY, x, axisY + 5);
-    noStroke();
-    text(t.toFixed(0), x, axisY + 8);
-  }
-  text("Time", (marginLeft + width) / 2, axisY + 30);
 
   if (!paused) animIndex = (animIndex + 1) % tValues.length;
 }
 
-function windowResized() {
-  resizeCanvas(windowWidth - 220, windowHeight);
+function initializeDots(left, top, size) {
+  preyDots = [];
+  predDots = [];
+  for (let i = 0; i < numDotsMax; i++) {
+    preyDots.push(createDot(left, top, size));
+    predDots.push(createDot(left, top, size));
+  }
+}
+
+function createDot(left, top, size) {
+  return {
+    x: random(left + dotSize / 2, left + size - dotSize / 2),
+    y: random(top + dotSize / 2, top + size - dotSize / 2),
+    vx: random(-0.3, 0.3),
+    vy: random(-0.3, 0.3)
+  };
+}
+
+function updateDots(dots, count, left, top, size, col) {
+  fill(col);
+  for (let i = 0; i < count; i++) {
+    let dot = dots[i];
+    if (!paused) {
+      dot.vx += random(-0.02, 0.02);
+      dot.vy += random(-0.02, 0.02);
+      dot.vx = constrain(dot.vx, -0.5, 0.5);
+      dot.vy = constrain(dot.vy, -0.5, 0.5);
+      dot.x += dot.vx;
+      dot.y += dot.vy;
+      const margin = dotSize / 2 + 2;
+      if (dot.x <= left + margin || dot.x >= left + size - margin) dot.vx += random(-0.2, 0.2);
+      if (dot.y <= top + margin || dot.y >= top + size - margin) dot.vy += random(-0.2, 0.2);
+      dot.x = constrain(dot.x, left + dotSize / 2, left + size - dotSize / 2);
+      dot.y = constrain(dot.y, top + dotSize / 2, top + size - dotSize / 2);
+    }
+    ellipse(dot.x, dot.y, dotSize);
+  }
 }
